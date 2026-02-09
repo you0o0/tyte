@@ -1,6 +1,5 @@
 {
     "name": "youtube-auto-update",
-    "type": "module",
     "dependencies": {
         "googleapis": "^140.0.0"
     }
