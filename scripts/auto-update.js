@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
 import { fileURLToPath } from 'url';
@@ -43,6 +43,14 @@ function isQuotaError(error) {
         return reason === 'quotaExceeded' || reason === 'dailyLimitExceeded';
     }
     return false;
+}
+
+function readJson(filePath) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function writeJson(filePath, data) {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 function parseDuration(duration) {
@@ -154,12 +162,10 @@ async function fetchPlaylistVideos(playlistId) {
             const title = item.snippet?.title || '';
             const thumbnail = item.snippet?.thumbnails?.high?.url || '';
 
-// قم بتعليق أو حذف هذه الأسطر للسماح بظهور الفيديوهات الخاصة
-/* if (title === 'Private video' || title === 'Deleted video' ||
-    title === 'فيديو خاص' || title === 'فيديو محذوف') {
-    continue;
-}
-*/
+            if (title === 'Private video' || title === 'Deleted video' ||
+                title === 'فيديو خاص' || title === 'فيديو محذوف') {
+                continue;
+            }
 
             videos.push({
                 id: videoId,
@@ -181,12 +187,12 @@ async function fetchPlaylistVideos(playlistId) {
 async function main() {
     console.log('Starting playlist update scan...\n');
 
-    if (!await fs.pathExists(PLAYLISTS_DIR)) {
+    if (!fs.existsSync(PLAYLISTS_DIR)) {
         console.log('No playlists directory found');
         return;
     }
 
-    const files = await fs.readdir(PLAYLISTS_DIR);
+    const files = fs.readdirSync(PLAYLISTS_DIR);
     const playlistFiles = files.filter(f => f.startsWith('pl_') && f.endsWith('.json'));
 
     if (playlistFiles.length === 0) {
@@ -199,7 +205,7 @@ async function main() {
     const localPlaylists = [];
     for (const file of playlistFiles) {
         try {
-            const data = await fs.readJson(path.join(PLAYLISTS_DIR, file));
+            const data = readJson(path.join(PLAYLISTS_DIR, file));
             localPlaylists.push({ file, data });
         } catch (error) {
             console.error(`Error reading ${file}: ${error.message}`);
@@ -234,7 +240,7 @@ async function main() {
             data.videos = videos;
             data.videoCount = videos.length;
 
-            await fs.writeJson(path.join(PLAYLISTS_DIR, file), data, { spaces: 2 });
+            writeJson(path.join(PLAYLISTS_DIR, file), data);
             console.log(`Updated: ${data.title} (${videos.length} videos)`);
             successCount++;
         } catch (error) {
@@ -249,4 +255,3 @@ main().catch(error => {
     console.error('Fatal error:', error);
     process.exit(1);
 });
-

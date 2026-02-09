@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
 import { fileURLToPath } from 'url';
@@ -42,6 +42,14 @@ function isQuotaError(error) {
         return reason === 'quotaExceeded' || reason === 'dailyLimitExceeded';
     }
     return false;
+}
+
+function readJson(filePath) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function writeJson(filePath, data) {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 async function fetchChannelDetails(channelIds) {
@@ -88,12 +96,12 @@ async function main() {
 
     console.log('Channel Update Script\n');
 
-    if (!await fs.pathExists(CHANNELS_FILE)) {
+    if (!fs.existsSync(CHANNELS_FILE)) {
         console.log('No channels.json file found');
         return;
     }
 
-    let channels = await fs.readJson(CHANNELS_FILE);
+    let channels = readJson(CHANNELS_FILE);
 
     if (specificChannel) {
         channels = channels.filter(c => c.id === specificChannel);
@@ -109,7 +117,7 @@ async function main() {
     const updatedData = await fetchChannelDetails(channelIds);
 
     let updatedCount = 0;
-    const allChannels = await fs.readJson(CHANNELS_FILE);
+    const allChannels = readJson(CHANNELS_FILE);
 
     for (let i = 0; i < allChannels.length; i++) {
         const channel = allChannels[i];
@@ -133,7 +141,7 @@ async function main() {
         }
     }
 
-    await fs.writeJson(CHANNELS_FILE, allChannels, { spaces: 2 });
+    writeJson(CHANNELS_FILE, allChannels);
 
     console.log(`\nDone: ${updatedCount} channels updated`);
 }

@@ -2,7 +2,6 @@
     "name": "youtube-auto-update",
     "type": "module",
     "dependencies": {
-        "googleapis": "^140.0.0",
-        "fs-extra": "^11.2.0"
+        "googleapis": "^140.0.0"
     }
 }
