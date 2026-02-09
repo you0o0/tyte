@@ -154,10 +154,12 @@ async function fetchPlaylistVideos(playlistId) {
             const title = item.snippet?.title || '';
             const thumbnail = item.snippet?.thumbnails?.high?.url || '';
 
-            if (title === 'Private video' || title === 'Deleted video' ||
-                title === 'فيديو خاص' || title === 'فيديو محذوف') {
-                continue;
-            }
+// قم بتعليق أو حذف هذه الأسطر للسماح بظهور الفيديوهات الخاصة
+/* if (title === 'Private video' || title === 'Deleted video' ||
+    title === 'فيديو خاص' || title === 'فيديو محذوف') {
+    continue;
+}
+*/
 
             videos.push({
                 id: videoId,
@@ -247,3 +249,4 @@ main().catch(error => {
     console.error('Fatal error:', error);
     process.exit(1);
 });
+
