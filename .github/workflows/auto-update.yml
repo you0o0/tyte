@@ -4,9 +4,6 @@ on:
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:
-  
-permissions:
-  contents: write
 
 jobs:
   update:
@@ -15,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -22,8 +21,9 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        working-directory: ./scripts 
-        run: npm install
+        run: |
+          cd server
+          npm install
 
       - name: Run update script
         env:
@@ -32,13 +32,10 @@ jobs:
           YOUTUBE_API_KEY_3: ${{ secrets.YOUTUBE_API_KEY_3 }}
           YOUTUBE_API_KEY_4: ${{ secrets.YOUTUBE_API_KEY_4 }}
           YOUTUBE_API_KEY_5: ${{ secrets.YOUTUBE_API_KEY_5 }}
-
-        working-directory: ./scripts
-        run: node auto-update.js
+        run: node scripts/auto-update.js
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-update playlists [skip ci]"
-          # المسار من المجلد الرئيسي لمجلد البيانات
-          file_pattern: "data/**/*.json"
+          file_pattern: "server/data/**/*.json"
