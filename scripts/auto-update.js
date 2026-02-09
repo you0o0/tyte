@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.join(__dirname, '../server/data');
+const DATA_DIR = path.join(__dirname, '../data');
 const PLAYLISTS_DIR = path.join(DATA_DIR, 'playlists');
 
 const API_KEYS = [
