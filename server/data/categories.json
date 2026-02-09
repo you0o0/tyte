@@ -1,0 +1,19 @@
+{
+  "main": [
+    {
+      "id": "code",
+      "path": "data/indices/categories/main/code.json"
+    },
+    {
+      "id": "learn",
+      "path": "data/indices/categories/main/learn.json"
+    }
+  ],
+  "sub": [
+    {
+      "id": "react",
+      "path": "data/indices/categories/sub/react.json",
+      "parentId": "code"
+    }
+  ]
+}
