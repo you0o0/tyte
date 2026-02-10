@@ -246,7 +246,7 @@ async function fetchPlaylistVideos(keyManager, playlistId) {
             const title = snippet.title || '';
             const thumbnail = snippet.thumbnails?.high?.url || '';
 
-/*
+
             if (
                 title === 'Private video' ||
                 title === 'Deleted video' ||
@@ -256,7 +256,7 @@ async function fetchPlaylistVideos(keyManager, playlistId) {
             ) {
                 continue;
             }
-*/
+
             videos.push({
                 id: videoId,
                 title,
