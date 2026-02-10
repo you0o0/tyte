@@ -117,8 +117,9 @@ async function youtubeRequest(keyManager, endpoint, params) {
 function readPlaylistsIndex() {
     if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
         try {
-            const index = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
-            return Object.entries(index).map(([id, data]) => ({
+            const raw = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
+            const playlists = raw.playlists || raw;
+            return Object.entries(playlists).map(([id, data]) => ({
                 id,
                 title: data.title,
                 videoCount: data.videoCount,
@@ -148,14 +149,16 @@ function readPlaylistsIndex() {
 }
 
 function updatePlaylistsIndex(playlistId, title, videoCount, channelId) {
-    let index = {};
+    let wrapper = { totalCount: 0, playlists: {} };
     if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
         try {
-            index = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
+            const raw = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
+            wrapper = raw.playlists ? raw : { totalCount: 0, playlists: raw };
         } catch (e) { }
     }
-    index[playlistId] = { title, videoCount, channelId };
-    fs.writeFileSync(PATHS.PLAYLISTS_INDEX, JSON.stringify(index, null, 2));
+    wrapper.playlists[playlistId] = { title, videoCount, channelId };
+    wrapper.totalCount = Object.keys(wrapper.playlists).length;
+    fs.writeFileSync(PATHS.PLAYLISTS_INDEX, JSON.stringify(wrapper, null, 2));
 }
 
 async function getBatchedRemoteCounts(keyManager, playlistIds) {
