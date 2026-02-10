@@ -1,19 +1,58 @@
 {
   "main": [
     {
-      "id": "code",
-      "path": "data/indices/categories/main/code.json"
+      "id": "educational",
+      "path": "data/indices/categories/main/educational.json"
     },
     {
-      "id": "learn",
-      "path": "data/indices/categories/main/learn.json"
+      "id": "programming",
+      "path": "data/indices/categories/main/programming.json"
+    },
+    {
+      "id": "social",
+      "path": "data/indices/categories/main/social.json"
     }
   ],
   "sub": [
     {
-      "id": "react",
-      "path": "data/indices/categories/sub/react.json",
-      "parentId": "code"
+      "id": "backend",
+      "path": "data/indices/categories/sub/backend.json",
+      "parentId": "web"
+    },
+    {
+      "id": "cyber-security",
+      "path": "data/indices/categories/sub/cyber-security.json",
+      "parentId": "programming"
+    },
+    {
+      "id": "frontend",
+      "path": "data/indices/categories/sub/frontend.json",
+      "parentId": "web"
+    },
+    {
+      "id": "game",
+      "path": "data/indices/categories/sub/game.json",
+      "parentId": "programming"
+    },
+    {
+      "id": "mobile",
+      "path": "data/indices/categories/sub/mobile.json",
+      "parentId": "programming"
+    },
+    {
+      "id": "self-development",
+      "path": "data/indices/categories/sub/self-development.json",
+      "parentId": "social"
+    },
+    {
+      "id": "software-engineering",
+      "path": "data/indices/categories/sub/software-engineering.json",
+      "parentId": "programming"
+    },
+    {
+      "id": "web",
+      "path": "data/indices/categories/sub/web.json",
+      "parentId": "programming"
     }
   ]
 }
