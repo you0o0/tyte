@@ -1,6 +1,0 @@
-{
-    "name": "youtube-auto-update",
-    "dependencies": {
-        "googleapis": "^140.0.0"
-    }
-}
