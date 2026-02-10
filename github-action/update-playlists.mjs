@@ -149,15 +149,14 @@ function readPlaylistsIndex() {
 }
 
 function updatePlaylistsIndex(playlistId, title, videoCount, channelId) {
-    let wrapper = { totalCount: 0, playlists: {} };
+    let wrapper = { playlists: {} };
     if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
         try {
             const raw = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
-            wrapper = raw.playlists ? raw : { totalCount: 0, playlists: raw };
+            wrapper = raw.playlists ? raw : { playlists: raw };
         } catch (e) { }
     }
     wrapper.playlists[playlistId] = { title, videoCount, channelId };
-    wrapper.totalCount = Object.keys(wrapper.playlists).length;
     fs.writeFileSync(PATHS.PLAYLISTS_INDEX, JSON.stringify(wrapper, null, 2));
 }
 
