@@ -12,13 +12,14 @@ const DATA_DIR = path.join(__dirname, '..', 'server', 'data');
 const LOGS_DIR = path.join(__dirname, 'logs', 'playlists');
 const PATHS = {
     PLAYLISTS: path.join(DATA_DIR, 'playlists'),
-    PLAYLISTS_INDEX: path.join(DATA_DIR, 'playlists-index.json'),
+    AUTO_UPDATE_LIST: path.join(DATA_DIR, 'auto-update.json'),
     INDICES: path.join(DATA_DIR, 'indices'),
     CATEGORIES_MAIN: path.join(DATA_DIR, 'indices', 'categories', 'main'),
     CATEGORIES_SUB: path.join(DATA_DIR, 'indices', 'categories', 'sub'),
     CHANNELS: path.join(DATA_DIR, 'indices', 'channels'),
     CHANNELS_FILE: path.join(DATA_DIR, 'channels.json'),
     CATEGORIES_FILE: path.join(DATA_DIR, 'categories.json'),
+    PLAYLISTS_INDEX: path.join(DATA_DIR, 'playlists_index.json'),
 };
 
 const API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -115,49 +116,34 @@ async function youtubeRequest(keyManager, endpoint, params) {
 
 
 function readPlaylistsIndex() {
-    if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
+    if (fs.existsSync(PATHS.AUTO_UPDATE_LIST)) {
         try {
-            const raw = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
-            const playlists = raw.playlists || raw;
-            return Object.entries(playlists).map(([id, data]) => ({
+            const raw = JSON.parse(fs.readFileSync(PATHS.AUTO_UPDATE_LIST, 'utf-8'));
+            return Object.entries(raw).map(([id, data]) => ({
                 id,
                 title: data.title,
                 videoCount: data.videoCount,
                 channelId: data.channelId,
             }));
         } catch (e) {
-            console.log(`⚠️  Failed to read playlists index: ${e.message}`);
+            console.log(`⚠️  Failed to read auto-update list: ${e.message}`);
         }
     }
-
-    console.log('⚠️  playlists-index.json not found, scanning files...');
-    if (!fs.existsSync(PATHS.PLAYLISTS)) return [];
-
-    const files = fs.readdirSync(PATHS.PLAYLISTS)
-        .filter(f => f.startsWith('pl_') && f.endsWith('.json'));
-
-    const playlists = [];
-    for (const file of files) {
-        try {
-            const data = JSON.parse(fs.readFileSync(path.join(PATHS.PLAYLISTS, file), 'utf-8'));
-            playlists.push({ id: data.id, title: data.title, videoCount: data.videoCount, channelId: data.channelId });
-        } catch (e) {
-            console.log(`⚠️  Failed to read ${file}: ${e.message}`);
-        }
-    }
-    return playlists;
+    return [];
 }
 
-function updatePlaylistsIndex(playlistId, title, videoCount, channelId) {
-    let wrapper = { playlists: {} };
-    if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
+function updateAutoUpdateList(playlistId, title, videoCount, channelId) {
+    let list = {};
+    if (fs.existsSync(PATHS.AUTO_UPDATE_LIST)) {
         try {
-            const raw = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
-            wrapper = raw.playlists ? raw : { playlists: raw };
+            list = JSON.parse(fs.readFileSync(PATHS.AUTO_UPDATE_LIST, 'utf-8'));
         } catch (e) { }
     }
-    wrapper.playlists[playlistId] = { title, videoCount, channelId };
-    fs.writeFileSync(PATHS.PLAYLISTS_INDEX, JSON.stringify(wrapper, null, 2));
+    // Only update existing entries
+    if (list[playlistId]) {
+        list[playlistId] = { title, videoCount, channelId };
+        fs.writeFileSync(PATHS.AUTO_UPDATE_LIST, JSON.stringify(list, null, 2));
+    }
 }
 
 async function getBatchedRemoteCounts(keyManager, playlistIds) {
@@ -273,11 +259,24 @@ function findCategoryFile(catName) {
 }
 
 function updateIndexFiles(playlist) {
+    // Get channelTitle from channels.json if possible
+    let channelTitle = 'Unknown';
+    if (fs.existsSync(PATHS.CHANNELS_FILE)) {
+        try {
+            const channels = JSON.parse(fs.readFileSync(PATHS.CHANNELS_FILE, 'utf-8'));
+            const channel = channels.find(c => c.id === playlist.channelId);
+            if (channel) channelTitle = channel.title;
+        } catch (e) { }
+    }
+
     const indexEntry = {
         id: playlist.id,
         title: playlist.title,
         thumbnail: playlist.thumbnail,
         videoCount: playlist.videoCount,
+        channelId: playlist.channelId,
+        channelTitle: channelTitle,
+        categories: playlist.categories || [],
         path: `data/playlists/pl_${playlist.id}.json`,
     };
 
@@ -316,6 +315,22 @@ function updateIndexFiles(playlist) {
             }
         } catch (e) {
             console.log(`   ⚠️  Failed to update channel index: ${e.message}`);
+        }
+    }
+
+    // 3. Update unified playlists index
+    if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
+        try {
+            let index = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
+            const idx = index.findIndex(p => p.id === playlist.id);
+            if (idx > -1) {
+                index[idx] = indexEntry;
+            } else {
+                index.push(indexEntry);
+            }
+            fs.writeFileSync(PATHS.PLAYLISTS_INDEX, JSON.stringify(index, null, 2));
+        } catch (e) {
+            console.log(`   ⚠️  Failed to update unified index: ${e.message}`);
         }
     }
 }
@@ -432,7 +447,7 @@ async function main() {
 
 
             updateIndexFiles(updatedPlaylist);
-            updatePlaylistsIndex(pl.id, updatedPlaylist.title, videos.length, updatedPlaylist.channelId);
+            updateAutoUpdateList(pl.id, updatedPlaylist.title, videos.length, updatedPlaylist.channelId);
 
             console.log(`   ✅ Updated successfully (${pl.localCount} → ${videos.length} videos)`);
             successCount++;
