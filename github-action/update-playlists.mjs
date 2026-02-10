@@ -368,6 +368,16 @@ async function main() {
 
     if (needsUpdate.length === 0) {
         console.log('\n✅ All playlists are up to date! No changes needed.');
+        if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
+        const today = new Date().toISOString().split('T')[0];
+        const logPath = path.join(LOGS_DIR, `${today}.md`);
+        let content = '';
+        if (fs.existsSync(logPath)) content = fs.readFileSync(logPath, 'utf-8') + '\n';
+        content += `## ${new Date().toISOString().split('T')[1].split('.')[0]}\n\n`;
+        content += `- Total: ${localPlaylists.length}\n`;
+        content += `- Needs update: 0\n- Updated: 0\n- Failed: 0\n\nNo changes.\n`;
+        fs.writeFileSync(logPath, content);
+        console.log(`📝 Log saved: logs/playlists/${today}.md`);
         return;
     }
 
