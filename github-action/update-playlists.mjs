@@ -9,8 +9,10 @@ const __dirname = path.dirname(__filename);
 
 
 const DATA_DIR = path.join(__dirname, '..', 'server', 'data');
+const LOGS_DIR = path.join(__dirname, 'logs', 'playlists');
 const PATHS = {
     PLAYLISTS: path.join(DATA_DIR, 'playlists'),
+    PLAYLISTS_INDEX: path.join(DATA_DIR, 'playlists-index.json'),
     INDICES: path.join(DATA_DIR, 'indices'),
     CATEGORIES_MAIN: path.join(DATA_DIR, 'indices', 'categories', 'main'),
     CATEGORIES_SUB: path.join(DATA_DIR, 'indices', 'categories', 'sub'),
@@ -85,7 +87,9 @@ async function youtubeRequest(keyManager, endpoint, params) {
             const response = await fetch(url);
 
             if (response.ok) {
-                return await response.json();
+                const result = await response.json();
+                await new Promise(r => setTimeout(r, 50));
+                return result;
             }
 
             if (response.status === 403) {
@@ -110,7 +114,22 @@ async function youtubeRequest(keyManager, endpoint, params) {
 }
 
 
-function readLocalPlaylists() {
+function readPlaylistsIndex() {
+    if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
+        try {
+            const index = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
+            return Object.entries(index).map(([id, data]) => ({
+                id,
+                title: data.title,
+                videoCount: data.videoCount,
+                channelId: data.channelId,
+            }));
+        } catch (e) {
+            console.log(`⚠️  Failed to read playlists index: ${e.message}`);
+        }
+    }
+
+    console.log('⚠️  playlists-index.json not found, scanning files...');
     if (!fs.existsSync(PATHS.PLAYLISTS)) return [];
 
     const files = fs.readdirSync(PATHS.PLAYLISTS)
@@ -120,12 +139,23 @@ function readLocalPlaylists() {
     for (const file of files) {
         try {
             const data = JSON.parse(fs.readFileSync(path.join(PATHS.PLAYLISTS, file), 'utf-8'));
-            playlists.push(data);
+            playlists.push({ id: data.id, title: data.title, videoCount: data.videoCount, channelId: data.channelId });
         } catch (e) {
             console.log(`⚠️  Failed to read ${file}: ${e.message}`);
         }
     }
     return playlists;
+}
+
+function updatePlaylistsIndex(playlistId, title, videoCount, channelId) {
+    let index = {};
+    if (fs.existsSync(PATHS.PLAYLISTS_INDEX)) {
+        try {
+            index = JSON.parse(fs.readFileSync(PATHS.PLAYLISTS_INDEX, 'utf-8'));
+        } catch (e) { }
+    }
+    index[playlistId] = { title, videoCount, channelId };
+    fs.writeFileSync(PATHS.PLAYLISTS_INDEX, JSON.stringify(index, null, 2));
 }
 
 async function getBatchedRemoteCounts(keyManager, playlistIds) {
@@ -164,7 +194,7 @@ async function fetchPlaylistDetails(keyManager, playlistId) {
     const data = await youtubeRequest(keyManager, 'playlists', {
         part: 'snippet,contentDetails',
         id: playlistId,
-        fields: 'items(id,snippet(title,description,thumbnails/high/url,channelId,channelTitle),contentDetails/itemCount)',
+        fields: 'items(id,snippet(title,description,thumbnails/high/url,channelId),contentDetails/itemCount)',
     });
 
     if (!data.items || data.items.length === 0) return null;
@@ -179,27 +209,7 @@ async function fetchPlaylistDetails(keyManager, playlistId) {
         thumbnail: snippet.thumbnails?.high?.url || '',
         videoCount: item.contentDetails?.itemCount || 0,
         channelId: snippet.channelId || '',
-        channelTitle: snippet.channelTitle || '',
     };
-}
-
-function parseDuration(duration) {
-    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-    if (!match) return '00:00';
-
-    const hours = (match[1] || '').replace('H', '');
-    const minutes = (match[2] || '').replace('M', '');
-    const seconds = (match[3] || '').replace('S', '');
-
-    let result = '';
-    if (hours) {
-        result += `${hours}:`;
-        result += `${minutes.padStart(2, '0')}:`;
-    } else {
-        result += `${(minutes || '0').padStart(2, '0')}:`;
-    }
-    result += (seconds || '0').padStart(2, '0');
-    return result;
 }
 
 async function fetchPlaylistVideos(keyManager, playlistId) {
@@ -218,26 +228,6 @@ async function fetchPlaylistVideos(keyManager, playlistId) {
         const data = await youtubeRequest(keyManager, 'playlistItems', params);
         const items = data.items || [];
 
-
-        const videoIds = items
-            .map(item => item.contentDetails?.videoId || item.snippet?.resourceId?.videoId)
-            .filter(Boolean);
-
-
-        let durationsMap = new Map();
-        if (videoIds.length > 0) {
-            const videosData = await youtubeRequest(keyManager, 'videos', {
-                part: 'contentDetails',
-                id: videoIds.join(','),
-                fields: 'items(id,contentDetails/duration)',
-            });
-
-            for (const video of videosData.items || []) {
-                durationsMap.set(video.id, parseDuration(video.contentDetails?.duration || ''));
-            }
-        }
-
-
         for (const item of items) {
             const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
             if (!videoId) continue;
@@ -245,7 +235,6 @@ async function fetchPlaylistVideos(keyManager, playlistId) {
             const snippet = item.snippet;
             const title = snippet.title || '';
             const thumbnail = snippet.thumbnails?.high?.url || '';
-
 
             if (
                 title === 'Private video' ||
@@ -263,7 +252,6 @@ async function fetchPlaylistVideos(keyManager, playlistId) {
                 description: snippet.description || '',
                 date: snippet.publishedAt || '',
                 thumbnail,
-                duration: durationsMap.get(videoId) || '00:00',
                 url: `https://www.youtube.com/watch?v=${videoId}`,
             });
         }
@@ -287,7 +275,6 @@ function updateIndexFiles(playlist) {
         id: playlist.id,
         title: playlist.title,
         thumbnail: playlist.thumbnail,
-        channelId: playlist.channelId,
         videoCount: playlist.videoCount,
         path: `data/playlists/pl_${playlist.id}.json`,
     };
@@ -342,7 +329,7 @@ async function main() {
     const keyManager = new ApiKeyManager();
 
 
-    const localPlaylists = readLocalPlaylists();
+    const localPlaylists = readPlaylistsIndex();
     if (localPlaylists.length === 0) {
         console.log('📭 No playlists found. Nothing to do.');
         return;
@@ -374,10 +361,7 @@ async function main() {
                 title: playlist.title,
                 localCount: playlist.videoCount,
                 remoteCount,
-                categories: playlist.categories || [],
                 channelId: playlist.channelId,
-                channelTitle: playlist.channelTitle || '',
-                channelThumbnail: playlist.channelThumbnail || '',
             });
         }
     }
@@ -398,12 +382,14 @@ async function main() {
 
     let successCount = 0;
     let failCount = 0;
+    const logEntries = [];
 
     for (let i = 0; i < needsUpdate.length; i++) {
         const pl = needsUpdate[i];
         console.log(`⬇️  [${i + 1}/${needsUpdate.length}] Updating "${pl.title}"...`);
 
         try {
+            const existingData = JSON.parse(fs.readFileSync(path.join(PATHS.PLAYLISTS, `pl_${pl.id}.json`), 'utf-8'));
 
             const details = await fetchPlaylistDetails(keyManager, pl.id);
             if (!details) {
@@ -423,10 +409,8 @@ async function main() {
                 description: details.description,
                 thumbnail: details.thumbnail,
                 videoCount: videos.length,
-                channelId: details.channelId || pl.channelId,
-                channelTitle: details.channelTitle || pl.channelTitle,
-                channelThumbnail: pl.channelThumbnail,
-                categories: pl.categories,
+                channelId: details.channelId || existingData.channelId,
+                categories: existingData.categories || [],
                 videos,
             };
 
@@ -436,9 +420,11 @@ async function main() {
 
 
             updateIndexFiles(updatedPlaylist);
+            updatePlaylistsIndex(pl.id, updatedPlaylist.title, videos.length, updatedPlaylist.channelId);
 
             console.log(`   ✅ Updated successfully (${pl.localCount} → ${videos.length} videos)`);
             successCount++;
+            logEntries.push({ id: pl.id, title: pl.title, before: pl.localCount, after: videos.length });
 
         } catch (error) {
             if (error.message === 'ALL_KEYS_EXHAUSTED') {
@@ -459,6 +445,27 @@ async function main() {
     console.log(`  ❌ Failed:  ${failCount}`);
     console.log(`  📊 Total:   ${needsUpdate.length}`);
     console.log('=============================================\n');
+
+    if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
+    const today = new Date().toISOString().split('T')[0];
+    const logPath = path.join(LOGS_DIR, `${today}.md`);
+    let content = '';
+    if (fs.existsSync(logPath)) content = fs.readFileSync(logPath, 'utf-8') + '\n';
+    content += `## ${new Date().toISOString().split('T')[1].split('.')[0]}\n\n`;
+    content += `- Total: ${localPlaylists.length}\n`;
+    content += `- Needs update: ${needsUpdate.length}\n`;
+    content += `- Updated: ${successCount}\n`;
+    content += `- Failed: ${failCount}\n\n`;
+    if (logEntries.length > 0) {
+        content += `| ID | Name | Before | After |\n|---|---|---|---|\n`;
+        for (const e of logEntries) {
+            content += `| ${e.id} | ${e.title} | ${e.before} | ${e.after} |\n`;
+        }
+    } else {
+        content += `No changes.\n`;
+    }
+    fs.writeFileSync(logPath, content);
+    console.log(`📝 Log saved: logs/playlists/${today}.md`);
 
     if (failCount > 0 && successCount === 0) {
         process.exit(1);
