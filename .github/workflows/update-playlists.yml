@@ -30,7 +30,7 @@ jobs:
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add server/data/ github-action/logs/
+          git add data/ github-action/logs/
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then
