@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-const DATA_DIR = path.join(__dirname, '..', 'server', 'data');
+const DATA_DIR = path.join(__dirname, '..', 'data');
 const LOGS_DIR = path.join(__dirname, 'logs', 'playlists');
 const PATHS = {
     PLAYLISTS: path.join(DATA_DIR, 'playlists'),
@@ -521,3 +521,4 @@ main().catch(error => {
     console.error('💥 Fatal error:', error.message);
     process.exit(1);
 });
+
