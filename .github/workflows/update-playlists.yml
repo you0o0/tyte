@@ -36,7 +36,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "✅ No changes to commit"
           else
-            git commit -m "🔄 Auto-update playlists ($(date -u '+%Y-%m-%d'))"
+            git commit -m "Aupdate-playlists ($(date -u '+%Y-%m-%d'))"
             git pull --rebase
             git push
             echo "✅ Changes committed and pushed"
